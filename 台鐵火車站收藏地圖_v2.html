@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台鐵火車站收藏地圖</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Space+Mono&display=swap');
+:root{
+  --bg:#f4f1ec;--surface:#fff;--surface2:#f0ece4;
+  --border:#ddd8cd;--text:#2a2620;--muted:#857e74;
+  --accent:#9a4e08;--accent2:#c46f1a;
+  --visited:#2a7a52;--visited-light:#e6f4ec;
+  --target:#b83a1a;--target-light:#fceae5;
+  --shadow:0 2px 8px rgba(0,0,0,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Space Mono',monospace;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1.5px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:16px;flex-shrink:0;box-shadow:var(--shadow);z-index:900;}
+.logo{font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--accent);letter-spacing:2px;line-height:1.2;white-space:nowrap;}
+.logo small{display:block;font-family:'Space Mono',monospace;font-size:9px;font-weight:400;color:var(--muted);letter-spacing:3px;}
+.progress-wrap{flex:1;max-width:180px;}
+.progress-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:3px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--visited),var(--accent2));border-radius:3px;transition:width .5s;}
+.progress-text{font-size:9px;color:var(--muted);letter-spacing:1px;}
+.stats{display:flex;gap:18px;margin-left:auto;}
+.stat{text-align:center;}
+.stat-n{font-size:18px;font-weight:700;line-height:1;}
+.stat-l{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+.s-visited .stat-n{color:var(--visited);}
+.s-target .stat-n{color:var(--target);}
+.s-total .stat-n{color:var(--accent);}
+
+/* LAYOUT */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:272px;background:var(--surface);border-right:1.5px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+.sb-head{padding:12px 12px 9px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.search{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;outline:none;transition:border-color .2s;}
+.search::placeholder{color:var(--muted);}
+.search:focus{border-color:var(--accent);}
+.tabs{display:flex;gap:4px;margin-top:8px;}
+.tab{flex:1;padding:5px 0;font-size:9px;letter-spacing:.5px;background:var(--surface);border:1.5px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;font-family:'Space Mono',monospace;transition:all .15s;text-align:center;}
+.tab:hover{color:var(--text);border-color:#aaa;}
+.tab.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;}
+.list-ct{font-size:9px;color:var(--muted);padding:5px 13px 2px;letter-spacing:1px;}
+.list{flex:1;overflow-y:auto;padding:3px 0;}
+.list::-webkit-scrollbar{width:3px;}
+.list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.item{padding:9px 12px;cursor:pointer;display:flex;align-items:center;gap:9px;border-left:3px solid transparent;transition:background .1s;}
+.item:hover{background:var(--surface2);}
+.item.on{background:#fff8f2;border-left-color:var(--accent);}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.dv{background:var(--visited);}
+.du{background:#ccc5bb;border:1.5px solid #aaa49a;}
+.dt{background:var(--target);}
+.iname{font-size:12px;font-family:'Noto Serif TC',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.iename{font-size:9px;color:var(--muted);margin-top:1px;}
+.icode{font-size:9px;color:#ccc5bb;flex-shrink:0;}
+
+/* MAP */
+#map{flex:1;}
+
+/* POPUP */
+.leaflet-popup-content-wrapper{background:#fff!important;border:1.5px solid var(--border)!important;border-radius:10px!important;box-shadow:0 8px 28px rgba(0,0,0,.13)!important;padding:0!important;}
+.leaflet-popup-content{margin:0!important;font-family:'Space Mono',monospace!important;color:var(--text)!important;min-width:240px;}
+.leaflet-popup-tip{background:#fff!important;box-shadow:none!important;}
+.pu{padding:15px;}
+.pu-name{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--accent);margin-bottom:1px;}
+.pu-en{font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:11px;}
+.pu-meta{font-size:10px;color:var(--muted);line-height:1.9;padding:9px 10px;background:var(--surface2);border-radius:6px;margin-bottom:12px;}
+.pu-meta b{color:var(--text);}
+.pu-acts{display:flex;gap:6px;margin-bottom:10px;}
+.btn{flex:1;padding:8px 4px;font-size:10px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Space Mono',monospace;transition:all .15s;text-align:center;}
+.btn:hover{color:var(--text);border-color:#999;}
+.b-v{background:var(--visited-light);color:var(--visited);border-color:var(--visited);font-weight:700;}
+.b-t{background:var(--target-light);color:var(--target);border-color:var(--target);font-weight:700;}
+
+/* DATE SECTION */
+.date-sec{border-top:1px solid var(--border);padding-top:10px;}
+.date-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;}
+.date-row{display:flex;gap:6px;align-items:center;}
+.date-input{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;outline:none;transition:border-color .2s;}
+.date-input:focus{border-color:var(--accent);}
+.date-save{padding:6px 12px;font-size:10px;background:var(--accent);color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:'Space Mono',monospace;transition:background .15s;white-space:nowrap;}
+.date-save:hover{background:var(--accent2);}
+.date-hint{font-size:9px;color:var(--muted);margin-top:5px;}
+
+/* Leaflet controls */
+.leaflet-control-zoom a{background:#fff!important;color:var(--text)!important;border-color:var(--border)!important;}
+.leaflet-control-zoom a:hover{background:var(--surface2)!important;color:var(--accent)!important;}
+.leaflet-bar{border-color:var(--border)!important;box-shadow:var(--shadow)!important;}
+.leaflet-control-attribution{font-size:9px!important;background:rgba(255,255,255,.75)!important;}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:#fff;border:1.5px solid var(--accent);color:var(--accent);padding:8px 18px;font-size:11px;border-radius:6px;letter-spacing:1px;transition:transform .3s;z-index:9999;pointer-events:none;white-space:nowrap;box-shadow:var(--shadow);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">台鐵蒐集<small>TAIWAN RAILWAY COLLECTOR</small></div>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="pf" style="width:0%"></div></div>
+    <div class="progress-text" id="pt">0 / 244 已打卡</div>
+  </div>
+  <div class="stats">
+    <div class="stat s-visited"><div class="stat-n" id="sv">0</div><div class="stat-l">已打卡</div></div>
+    <div class="stat s-target"><div class="stat-n" id="st">0</div><div class="stat-l">目標站</div></div>
+    <div class="stat s-total"><div class="stat-n">244</div><div class="stat-l">全站數</div></div>
+  </div>
+</header>
+<div class="main">
+  <div class="sidebar">
+    <div class="sb-head">
+      <input class="search" id="searchInput" placeholder="搜尋車站名稱 / 站碼..." oninput="doFilter()">
+      <div class="tabs">
+        <div class="tab on" onclick="setTab('all',this)">全部</div>
+        <div class="tab" onclick="setTab('visited',this)">已打卡</div>
+        <div class="tab" onclick="setTab('target',this)">目標站</div>
+        <div class="tab" onclick="setTab('unvisited',this)">未去</div>
+      </div>
+    </div>
+    <div class="list-ct" id="lc"></div>
+    <div class="list" id="list"></div>
+  </div>
+  <div id="map"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STATIONS=[{"code":"0900","name":"基隆","ename":"Keelung","addr":"基隆市中山區中山一路 16 之 1 號","tel":"02-24263743","gps":"25.13191 121.73837","bike":"Y"},{"code":"0910","name":"三坑","ename":"Sankeng","addr":"基隆市仁愛區德厚里龍安街 206 號","tel":"02-24230289","gps":"25.12305 121.74202","bike":"Y"},{"code":"0920","name":"八堵","ename":"Badu","addr":"基隆市暖暖區八南里八堵路 142 號","tel":"02-24560841","gps":"25.10838 121.72904","bike":"Y"},{"code":"0930","name":"七堵","ename":"Qidu","addr":"基隆市七堵區長興里東新街 2 號","tel":"02-24553426","gps":"25.09294 121.71415","bike":"Y"},{"code":"0940","name":"百福","ename":"Baifu","addr":"基隆市七堵區堵南里明德三路 1 之 1 號","tel":"02-24528372","gps":"25.07795 121.69379","bike":"N"},{"code":"0950","name":"五堵","ename":"Wudu","addr":"新北市汐止區長安里長安路 17 號","tel":"02-86476200","gps":"25.07799 121.66758","bike":"Y"},{"code":"0960","name":"汐止","ename":"Xizhi","addr":"新北市汐止區信望里信義路 1 號","tel":"02-26415096","gps":"25.06789 121.66115","bike":"Y"},{"code":"0970","name":"汐科","ename":"Xike","addr":"新北市汐止區大同里大同路二段 182 號","tel":"02-26499817#8730","gps":"25.06405 121.65237","bike":"N"},{"code":"0980","name":"南港","ename":"Nangang","addr":"臺北市南港區南港里南港路一段 313 號 B2","tel":"02-27838645","gps":"25.05348 121.60706","bike":"Y"},{"code":"0990","name":"松山","ename":"Songshan","addr":"臺北市信義區松山路 11 號B1","tel":"02-27673819","gps":"25.04921 121.57799","bike":"Y"},{"code":"1000","name":"臺北","ename":"Taipei","addr":"臺北市中正區黎明里北平西路 3 號","tel":"02-23713558","gps":"25.04771 121.51784","bike":"N"},{"code":"1001","name":"臺北-環島","ename":"Taipei Surround Island","addr":"臺北市中正區","tel":"","gps":"25.04774 121.51711","bike":"N"},{"code":"1010","name":"萬華","ename":"Wanhua","addr":"臺北市萬華區富福里康定路 382 號","tel":"02-23020481","gps":"25.03357 121.50021","bike":"Y"},{"code":"1020","name":"板橋","ename":"Banqiao","addr":"新北市板橋區新民里縣民大道二段 7 號（縣民大道側）","tel":"02-89691006","gps":"25.01401 121.46406","bike":"Y"},{"code":"1030","name":"浮洲","ename":"Fuzhou","addr":"新北市板橋區僑中里僑中二街 156 號","tel":"02-23815226#4665","gps":"25.00419 121.44477","bike":"N"},{"code":"1040","name":"樹林","ename":"Shulin","addr":"新北市樹林區樹北里鎮前街 112 號","tel":"02-26812052","gps":"24.99121 121.42481","bike":"Y"},{"code":"1050","name":"南樹林","ename":"South Shulin","addr":"新北市樹林區東山里中山路二段 230 號","tel":"02-26812052","gps":"24.98044 121.40884","bike":"N"},{"code":"1060","name":"山佳","ename":"Shanjia","addr":"新北市樹林區中山路三段108號","tel":"02-26808874","gps":"24.97273 121.39254","bike":"N"},{"code":"1070","name":"鶯歌","ename":"Yingge","addr":"新北市鶯歌區東鶯里文化路 68-1號","tel":"02-26792004","gps":"24.95432 121.35535","bike":"Y"},{"code":"1075","name":"鳳鳴","ename":"Fengming","addr":"新北市鶯歌區鳳鳴里鳳一路 2 號","tel":"","gps":"24.97268 121.33658","bike":"N"},{"code":"1080","name":"桃園","ename":"Taoyuan","addr":"桃園市桃園區武陵里中正路 1 號","tel":"03-3767050","gps":"24.98942 121.31384","bike":"Y"},{"code":"1090","name":"內壢","ename":"Neili","addr":"桃園市中壢區中原里中華路一段 267 號","tel":"03-4559725","gps":"24.97281 121.25826","bike":"N"},{"code":"1100","name":"中壢","ename":"Zhongli_Taoyuan","addr":"桃園市中壢區石頭里中和路 139 號","tel":"03-4223235","gps":"24.95369 121.22556","bike":"Y"},{"code":"1110","name":"埔心","ename":"Puxin","addr":"桃園市楊梅區埔心里永美路 208 號","tel":"03-4827100","gps":"24.91945 121.18366","bike":"Y"},{"code":"1120","name":"楊梅","ename":"Yangmei","addr":"桃園市楊梅區楊梅里大成路 256 號","tel":"03-4782893","gps":"24.91402 121.14641","bike":"Y"},{"code":"1130","name":"富岡","ename":"Fugang","addr":"桃園市楊梅區富岡里成功路 37 號","tel":"03-4723754","gps":"24.93445 121.08308","bike":"Y"},{"code":"1140","name":"新富","ename":"Xinfu","addr":"桃園市楊梅區富豐里新明街","tel":"03-4723754","gps":"24.93109 121.06751","bike":"N"},{"code":"1150","name":"北湖","ename":"Beihu","addr":"新竹縣湖口鄉東興村北湖路 1 號","tel":"03-5993850","gps":"24.92201 121.05592","bike":"Y"},{"code":"1160","name":"湖口","ename":"Hukou","addr":"新竹縣湖口鄉仁勢村中山路二段 121 號","tel":"03-5992192","gps":"24.90288 121.04411","bike":"Y"},{"code":"1170","name":"新豐","ename":"Xinfeng","addr":"新竹縣新豐鄉山崎村新興路 202 號","tel":"03-5596314","gps":"24.86939 120.99626","bike":"Y"},{"code":"1180","name":"竹北","ename":"Zhubei","addr":"新竹縣竹北市竹義里和平街 59 號","tel":"03-5552024","gps":"24.83892 121.00936","bike":"Y"},{"code":"1190","name":"北新竹","ename":"North Hsinchu","addr":"新竹市 東區東園里中華路一段 291 之 2 號","tel":"03-5237441","gps":"24.80875 120.98381","bike":"N"},{"code":"1191","name":"千甲","ename":"Qianjia","addr":"新竹市 東區水源里千甲路 142 號","tel":"03-5237441","gps":"24.80657 121.0034","bike":"N"},{"code":"1192","name":"新莊","ename":"Xinzhuang","addr":"新竹市 東區新莊里關東路 310 號","tel":"03-5237441","gps":"24.78811 121.02196","bike":"N"},{"code":"1193","name":"竹中","ename":"Zhuzhong","addr":"新竹縣竹東鎮頭重里竹中路 145 號","tel":"03-5962042","gps":"24.78145 121.03141","bike":"N"},{"code":"1194","name":"六家","ename":"Liujia","addr":"新竹縣竹北市隘口里復興三路二段 229 號","tel":"03-5962042","gps":"24.80766 121.03941","bike":"N"},{"code":"1201","name":"上員","ename":"Shangyuan","addr":"新竹縣竹東鎮上員里光明路 (無站房)","tel":"03-5962042","gps":"24.77776 121.05582","bike":"N"},{"code":"1202","name":"榮華","ename":"Ronghua","addr":"新竹縣竹東鎮仁愛里北興路 (無站房)","tel":"03-5962042","gps":"24.74839 121.08319","bike":"N"},{"code":"1203","name":"竹東","ename":"Zhudong","addr":"新竹縣竹東鎮雞林里東林路 196 號","tel":"03-5962042","gps":"24.73823 121.09472","bike":"N"},{"code":"1204","name":"橫山","ename":"Hengshan","addr":"新竹縣橫山鄉橫山村橫山路 97 號 (無站房)","tel":"03-5962042","gps":"24.72041 121.11772","bike":"N"},{"code":"1205","name":"九讚頭","ename":"Jiuzantou","addr":"新竹縣橫山鄉大肚村中豐路二段 286 巷 29 號","tel":"03-5962042","gps":"24.72062 121.13622","bike":"N"},{"code":"1206","name":"合興","ename":"Hexing","addr":"新竹縣橫山鄉力行村中山街一段 17 號","tel":"03-5962042","gps":"24.71667 121.15437","bike":"N"},{"code":"1207","name":"富貴","ename":"Fugui","addr":"新竹縣橫山鄉豐田村中山街一段 (無站房)","tel":"03-5962042","gps":"24.71551 121.16743","bike":"N"},{"code":"1208","name":"內灣","ename":"Neiwan","addr":"新竹縣橫山鄉內灣村中正路 6 號","tel":"03-5962042","gps":"24.70535 121.18255","bike":"N"},{"code":"1210","name":"新竹","ename":"Hsinchu","addr":"新竹市 東區榮光里中華路二段 445 號","tel":"03-5237441","gps":"24.80157 120.97157","bike":"Y"},{"code":"1220","name":"三姓橋","ename":"Sanxingqiao","addr":"新竹市 香山區香山里元培街 32 巷 30 號","tel":"03-5237441","gps":"24.78731 120.92844","bike":"Y"},{"code":"1230","name":"香山","ename":"Xiangshan","addr":"新竹市 香山區朝山里中華路五段 347 巷 2 弄 27 號","tel":"03-5237441","gps":"24.76311 120.91388","bike":"Y"},{"code":"1240","name":"崎頂","ename":"Qiding","addr":"苗栗縣竹南鎮崎頂里北戶 55 號","tel":"037-472030","gps":"24.72291 120.87183","bike":"N"},{"code":"1250","name":"竹南","ename":"Zhunan","addr":"苗栗縣竹南鎮竹南里中山路 166 號","tel":"037-472030","gps":"24.68662 120.8806","bike":"Y"},{"code":"2110","name":"談文","ename":"Tanwen","addr":"苗栗縣造橋鄉談文村仁愛路 29 號","tel":"037-472030","gps":"24.65641 120.85825","bike":"N"},{"code":"2120","name":"大山","ename":"Dashan","addr":"苗栗縣後龍鎮大山里明山路 180 號","tel":"037-431208","gps":"24.64565 120.80376","bike":"N"},{"code":"2130","name":"後龍","ename":"Houlong","addr":"苗栗縣後龍鎮北龍里車站街 127-2 號","tel":"037-728616","gps":"24.61621 120.78731","bike":"Y"},{"code":"2140","name":"龍港","ename":"Longgang","addr":"苗栗縣後龍鎮龍津里7鄰公司寮 85 號","tel":"037-728616","gps":"24.61169 120.75812","bike":"N"},{"code":"2150","name":"白沙屯","ename":"Baishatun","addr":"苗栗縣通霄鎮白西里白西 131 號","tel":"037-793066","gps":"24.56481 120.70824","bike":"Y"},{"code":"2160","name":"新埔","ename":"Xinpu","addr":"苗栗縣通霄鎮新埔里新埔 57 號","tel":"037-793930","gps":"24.54018 120.69518","bike":"N"},{"code":"2170","name":"通霄","ename":"Tongxiao","addr":"苗栗縣通霄鎮通西里中正路 109 號","tel":"037-758300","gps":"24.49141 120.67843","bike":"Y"},{"code":"2180","name":"苑裡","ename":"Yuanli","addr":"苗栗縣苑裡鎮苑北里中山路 165 號","tel":"037-851013","gps":"24.44344 120.65146","bike":"Y"},{"code":"2190","name":"日南","ename":"Rinan","addr":"臺中市大甲區孟春里中山路二段 140 巷 8 號","tel":"04-26816113","gps":"24.37815 120.65412","bike":"Y"},{"code":"2200","name":"大甲","ename":"Dajia","addr":"臺中市大甲區大甲里中山路一段 828 號","tel":"04-26872022","gps":"24.34448 120.62702","bike":"Y"},{"code":"2210","name":"臺中港","ename":"Taichung Port","addr":"臺中市清水區頂湳里甲南路 2 號","tel":"04-26225374","gps":"24.30441 120.60231","bike":"N"},{"code":"2220","name":"清水","ename":"Qingshui","addr":"臺中市清水區南社里中正街 115 號","tel":"04-26222021","gps":"24.26364 120.56918","bike":"Y"},{"code":"2230","name":"沙鹿","ename":"Shalu","addr":"臺中市沙鹿區沙鹿里中正街 94 號","tel":"04-26625057","gps":"24.23702 120.55752","bike":"Y"},{"code":"2240","name":"龍井","ename":"Longjing","addr":"臺中市龍井區龍泉里龍新路 1 號","tel":"04-26355578","gps":"24.19748 120.54335","bike":"Y"},{"code":"2250","name":"大肚","ename":"Dadu","addr":"臺中市大肚區頂街里平和街 121 號","tel":"04-26992523","gps":"24.15417 120.54249","bike":"Y"},{"code":"2260","name":"追分","ename":"Zhuifen","addr":"臺中市大肚區王田里追分街 13 號","tel":"04-26933106","gps":"24.12051 120.57018","bike":"Y"},{"code":"3140","name":"造橋","ename":"Zaoqiao","addr":"苗栗縣造橋鄉造橋村平仁路 54 號","tel":"037-472030","gps":"24.64186 120.86721","bike":"N"},{"code":"3150","name":"豐富","ename":"Fengfu","addr":"苗栗縣後龍鎮校椅里高鐵一路 66 號","tel":"037-726700","gps":"24.60429 120.82637","bike":"Y"},{"code":"3160","name":"苗栗","ename":"Miaoli","addr":"苗栗縣苗栗市上苗里為公路 1 號","tel":"037-260031","gps":"24.57001 120.82233","bike":"Y"},{"code":"3170","name":"南勢","ename":"Nanshi","addr":"苗栗縣苗栗市新英里南勢 39 號","tel":"037-260031","gps":"24.52246 120.79154","bike":"N"},{"code":"3180","name":"銅鑼","ename":"Tongluo","addr":"苗栗縣銅鑼鄉銅鑼村大同路13號","tel":"037-983838","gps":"24.48713 120.78591","bike":"Y"},{"code":"3190","name":"三義","ename":"Sanyi","addr":"苗栗縣三義鄉雙湖村雙湖 90 號","tel":"037-874763","gps":"24.42066 120.77393","bike":"Y"},{"code":"3210","name":"泰安","ename":"Tai'an","addr":"臺中市后里區泰安里安眉路 37 之 12 號","tel":"04-25586540","gps":"24.33146 120.74181","bike":"N"},{"code":"3220","name":"后里","ename":"Houli","addr":"臺中市后里區義里里甲后路一段 1 號","tel":"04-25562038","gps":"24.30933 120.73288","bike":"Y"},{"code":"3230","name":"豐原","ename":"Fengyuan","addr":"臺中市豐原區豐原里中正路 1-1號","tel":"04-25207950#32","gps":"24.25438 120.72374","bike":"Y"},{"code":"3240","name":"栗林","ename":"Lilin","addr":"臺中市潭子區潭豐路二段747號","tel":"04-25391401","gps":"24.23461 120.7106","bike":"Y"},{"code":"3250","name":"潭子","ename":"Tanzi","addr":"臺中市潭子區中山路二段352-1號","tel":"04-25363852","gps":"24.21214 120.70564","bike":"Y"},{"code":"3260","name":"頭家厝","ename":"Toujiacuo","addr":"臺中市潭子區頭張東路43巷8號","tel":"04-25391426","gps":"24.19572 120.70398","bike":"Y"},{"code":"3270","name":"松竹","ename":"Songzhu","addr":"臺中市北屯區舊社里松竹路一段1473巷100號","tel":"04-22473033","gps":"24.18035 120.70193","bike":"Y"},{"code":"3280","name":"太原","ename":"Taiyuan","addr":"臺中市北屯區北興里東光路 665 號","tel":"04-22313926","gps":"24.16449 120.69988","bike":"Y"},{"code":"3290","name":"精武","ename":"Jingwu","addr":"臺中市東區東南里東光路 161號","tel":"04-23606501","gps":"24.14887 120.69784","bike":"Y"},{"code":"3300","name":"臺中","ename":"Taichung","addr":"臺中市中區綠川里臺灣大道一段 1 號","tel":"04-22227236","gps":"24.13728 120.68691","bike":"Y"},{"code":"3310","name":"五權","ename":"Wuquan","addr":"臺中市南區建國南路二段201號","tel":"04-22601636","gps":"24.12877 120.66654","bike":"Y"},{"code":"3320","name":"大慶","ename":"Daqing","addr":"臺中市南區樹德里7鄰大慶街2段130號","tel":"04-22637940","gps":"24.11911 120.64795","bike":"Y"},{"code":"3330","name":"烏日","ename":"Wuri","addr":"臺中市烏日區烏日里三民街 258 號","tel":"04-23381071","gps":"24.10867 120.62244","bike":"N"},{"code":"3340","name":"新烏日","ename":"Xinwuri","addr":"臺中市烏日區三和里高鐵東一路 26 號","tel":"04-23376883","gps":"24.10937 120.61421","bike":"Y"},{"code":"3350","name":"成功","ename":"Chenggong","addr":"臺中市烏日區榮泉里中山路三段 550 號","tel":"04-23371986","gps":"24.11424 120.59021","bike":"Y"},{"code":"3360","name":"彰化","ename":"Changhua","addr":"彰化縣彰化市長樂里三民路 1 號","tel":"04-7274218#11","gps":"24.08177 120.53854","bike":"Y"},{"code":"3370","name":"花壇","ename":"Huatan","addr":"彰化縣花壇鄉花壇村中正路 370 號","tel":"04-7881418","gps":"24.02502 120.53742","bike":"Y"},{"code":"3380","name":"大村","ename":"Dacun","addr":"彰化縣大村鄉過溝村福進路 100 號","tel":"04-8525148","gps":"23.99003 120.56068","bike":"N"},{"code":"3390","name":"員林","ename":"Yuanlin","addr":"彰化縣員林市和平里民權街 55 號","tel":"04-8320544#14","gps":"23.95947 120.56977","bike":"Y"},{"code":"3400","name":"永靖","ename":"Yongjing","addr":"彰化縣永靖鄉崙子村崙饒路25 號","tel":"04-8320544#15","gps":"23.92817 120.57167","bike":"N"},{"code":"3410","name":"社頭","ename":"Shetou","addr":"彰化縣社頭鄉廣興村社站路 10 號","tel":"04-8711646","gps":"23.89573 120.58077","bike":"Y"},{"code":"3420","name":"田中","ename":"Tianzhong","addr":"彰化縣田中鎮中路里中州路一段 1 號","tel":"04-8742142","gps":"23.85826 120.59123","bike":"Y"},{"code":"3430","name":"二水","ename":"Ershui","addr":"彰化縣二水鄉光化村光文路 1 號","tel":"04-8792027","gps":"23.81321 120.61805","bike":"Y"},{"code":"3431","name":"源泉","ename":"Yuanquan","addr":"彰化縣二水鄉合興村英義路 (無站房)","tel":"04-8792027","gps":"23.79845 120.64211","bike":"N"},{"code":"3432","name":"濁水","ename":"Zhuoshui","addr":"南投縣名間鄉濁水村車站路 15 號","tel":"049-2735850","gps":"23.83467 120.70467","bike":"N"},{"code":"3433","name":"龍泉","ename":"Longquan","addr":"南投縣集集鎮隘寮村龍泉巷 (無站房)","tel":"04-8792027","gps":"23.83521 120.75014","bike":"N"},{"code":"3434","name":"集集","ename":"Jiji","addr":"南投縣集集鎮吳厝里民生路 75 號","tel":"049-2762546","gps":"23.82647 120.78495","bike":"N"},{"code":"3435","name":"水里","ename":"Shuili","addr":"南投縣水里鄉水里村民生路 440 號","tel":"049-2770015","gps":"23.81845 120.85332","bike":"N"},{"code":"3436","name":"車埕","ename":"Checheng","addr":"南投縣水里鄉車埕村民權巷 2 號","tel":"049-2774749","gps":"23.83263 120.86572","bike":"N"},{"code":"3450","name":"林內","ename":"Linnei","addr":"雲林縣林內鄉林中村中山路 42 號","tel":"05-5892040","gps":"23.75967 120.61499","bike":"Y"},{"code":"3460","name":"石榴","ename":"Shiliu","addr":"雲林縣斗六市榴北里文明路 31 號","tel":"05-5332900","gps":"23.73167 120.57998","bike":"N"},{"code":"3470","name":"斗六","ename":"Douliu","addr":"雲林縣斗六市信義里民生路 187 號","tel":"05-5332900","gps":"23.71157 120.54117","bike":"Y"},{"code":"3480","name":"斗南","ename":"Dounan","addr":"雲林縣斗南鎮南昌里中山路 2 號","tel":"05-5972039","gps":"23.67265 120.48056","bike":"Y"},{"code":"3490","name":"石龜","ename":"Shigui","addr":"雲林縣斗南鎮石龜里","tel":"05-5972039","gps":"23.63951 120.47106","bike":"N"},{"code":"4050","name":"大林","ename":"Dalin","addr":"嘉義縣大林鎮吉林里中山路 2 號","tel":"05-2654804","gps":"23.60112 120.45585","bike":"Y"},{"code":"4060","name":"民雄","ename":"Minxiong","addr":"嘉義縣民雄鄉東榮村和平路 2 號","tel":"05-2264272","gps":"23.55519 120.43139","bike":"Y"},{"code":"4070","name":"嘉北","ename":"Jiabei","addr":"嘉義市 東區後湖里保建街 110 號","tel":"05-2334584","gps":"23.49981 120.44851","bike":"N"},{"code":"4080","name":"嘉義","ename":"Chiayi","addr":"嘉義市 西區番社里中山路 528 號","tel":"05-2228904","gps":"23.47902 120.44124","bike":"Y"},{"code":"4090","name":"水上","ename":"Shuishang","addr":"嘉義縣水上鄉粗溪村68號","tel":"05-2228904","gps":"23.43398 120.39971","bike":"N"},{"code":"4100","name":"南靖","ename":"Nanjing","addr":"嘉義縣水上鄉三鎮村三鎮路 26 號","tel":"05-2601232","gps":"23.41344 120.38654","bike":"N"},{"code":"4110","name":"後壁","ename":"Houbi","addr":"臺南市後壁區後壁里後壁 77 號","tel":"06-6872055","gps":"23.36626 120.36058","bike":"N"},{"code":"4120","name":"新營","ename":"Xinying","addr":"臺南市新營區中營里中山路 1 號","tel":"06-6322104","gps":"23.30673 120.32307","bike":"Y"},{"code":"4130","name":"柳營","ename":"Liuying","addr":"臺南市柳營區東昇里建國路 1 號","tel":"06-6226450","gps":"23.27762 120.32252","bike":"N"},{"code":"4140","name":"林鳳營","ename":"Linfengying","addr":"臺南市六甲區中社里林鳳營 16 號","tel":"06-6986086","gps":"23.24259 120.32107","bike":"N"},{"code":"4150","name":"隆田","ename":"Longtian","addr":"臺南市官田區隆田里中山路一段 1 號","tel":"06-5791664","gps":"23.19271 120.31917","bike":"Y"},{"code":"4160","name":"拔林","ename":"Balin","addr":"臺南市官田區拔林里拔子林 83 之 1 號","tel":"06-5791664","gps":"23.17287 120.32117","bike":"N"},{"code":"4170","name":"善化","ename":"Shanhua","addr":"臺南市善化區光文里中山路 1 號","tel":"06-5837301","gps":"23.13333 120.30653","bike":"Y"},{"code":"4180","name":"南科","ename":"Nanke","addr":"臺南市新市區大營里大營 287-300 號","tel":"06-5896356","gps":"23.10727 120.30192","bike":"Y"},{"code":"4190","name":"新市","ename":"Xinshi","addr":"臺南市新市區新和里中華路 1 號","tel":"06-5996911","gps":"23.06823 120.29004","bike":"Y"},{"code":"4200","name":"永康","ename":"Yongkang","addr":"臺南市永康區埔園里中山路 459 號","tel":"06-2323305","gps":"23.03825 120.25347","bike":"Y"},{"code":"4210","name":"大橋","ename":"Daqiao","addr":"臺南市永康區西橋里中華路 835 號","tel":"06-3021755","gps":"23.01923 120.22429","bike":"N"},{"code":"4220","name":"臺南","ename":"Tainan","addr":"臺南市東區成大里北門路二段4號","tel":"06-2261314","gps":"22.99719 120.21249","bike":"Y"},{"code":"4250","name":"保安","ename":"Bao'an","addr":"臺南市仁德區保安里文賢路一段 529 巷 10 號","tel":"06-2665988","gps":"22.93296 120.23158","bike":"Y"},{"code":"4260","name":"仁德","ename":"Rende","addr":"臺南市仁德區保安里永德路 10 號","tel":"06-2669383","gps":"22.92354 120.24054","bike":"N"},{"code":"4270","name":"中洲","ename":"Zhongzhou","addr":"臺南市仁德區中洲五街236號","tel":"06-2667191","gps":"22.90446 120.25284","bike":"Y"},{"code":"4271","name":"長榮大學","ename":"Chang Jung Christian University","addr":"臺南市歸仁區大潭里長大路15 號","tel":"06-2782615","gps":"22.90729 120.27263","bike":"N"},{"code":"4272","name":"沙崙","ename":"Shalun","addr":"臺南市歸仁區沙崙里歸仁大道 102 號","tel":"06-3032686","gps":"22.92407 120.28622","bike":"N"},{"code":"4290","name":"大湖","ename":"Dahu","addr":"高雄市路竹區甲南里天祐路 24 號","tel":"07-6932127","gps":"22.87821 120.25384","bike":"Y"},{"code":"4300","name":"路竹","ename":"Luzhu","addr":"高雄市路竹區竹南里中正路 288 號","tel":"07-6072723","gps":"22.85404 120.26619","bike":"Y"},{"code":"4310","name":"岡山","ename":"Gangshan","addr":"高雄市岡山區碧紅里岡燕路 111 號","tel":"07-6212074","gps":"22.79223 120.30004","bike":"Y"},{"code":"4320","name":"橋頭","ename":"Qiaotou","addr":"高雄市橋頭區橋頭里站前街 14 號","tel":"07-6115424","gps":"22.76098 120.31011","bike":"Y"},{"code":"4330","name":"楠梓","ename":"Nanzi","addr":"高雄市楠梓區惠楠里建楠路 229 號","tel":"07-3510175","gps":"22.72696 120.32425","bike":"Y"},{"code":"4340","name":"新左營","ename":"Xinzuoying","addr":"高雄市左營區尾北里站前北路 1 號","tel":"07-5887825","gps":"22.68754 120.30678","bike":"Y"},{"code":"4350","name":"左營","ename":"Zuoying","addr":"高雄市左營區翠華路1050號地下1層","tel":"07-5887835","gps":"22.67445 120.29401","bike":"Y"},{"code":"4360","name":"內惟","ename":"Neiwei","addr":"高雄市鼓山區翠華路500號地下1層","tel":"07-5886119","gps":"22.66589 120.28701","bike":"Y"},{"code":"4370","name":"美術館","ename":"Museum of Fine Arts","addr":"高雄市鼓山區翠華路246號","tel":"07-5215147","gps":"22.65185 120.28148","bike":"Y"},{"code":"4380","name":"鼓山","ename":"Gushan","addr":"高雄市鼓山區鐵路街20巷6號","tel":"07-5217014","gps":"22.64181 120.28071","bike":"N"},{"code":"4390","name":"三塊厝","ename":"Sankuaicuo","addr":"高雄市三民區德北里6鄰康平街1號","tel":"07-2856234","gps":"22.63931 120.29414","bike":"Y"},{"code":"4400","name":"高雄","ename":"Kaohsiung","addr":"高雄市三民區港西里建國二路 318 號","tel":"07-2352376","gps":"22.63946 120.30292","bike":"Y"},{"code":"4410","name":"民族","ename":"Minzu","addr":"高雄市三民區博惠里14鄰凱旋一路260號","tel":"07-2231492","gps":"22.63879 120.31494","bike":"Y"},{"code":"4420","name":"科工館","ename":"Science And Technology Museum","addr":"高雄市三民區寶盛里15鄰大順三路307號","tel":"07-2234778","gps":"22.63709 120.32603","bike":"Y"},{"code":"4430","name":"正義","ename":"Zhengyi","addr":"高雄市苓雅區建軍里正義路 308 號 B1","tel":"07-7999818","gps":"22.63425 120.34245","bike":"Y"},{"code":"4440","name":"鳳山","ename":"Fongshan","addr":"高雄市鳳山區曹公里曹公路 137 號","tel":"07-7460423","gps":"22.63145 120.35745","bike":"Y"},{"code":"4450","name":"後庄","ename":"Houzhuang","addr":"高雄市大寮區後庄里民慶街 9 號","tel":"07-7020149","gps":"22.64016 120.39131","bike":"N"},{"code":"4460","name":"九曲堂","ename":"Jiuqutang","addr":"高雄市大樹區久堂里久堂路鐵路巷 15 號","tel":"07-6512020","gps":"22.65641 120.42089","bike":"Y"},{"code":"4470","name":"六塊厝","ename":"Liukuaicuo","addr":"屏東縣屏東市長安里光復路 392 號","tel":"08-7515140","gps":"22.66597 120.46497","bike":"N"},{"code":"5000","name":"屏東","ename":"Pingtung","addr":"屏東縣屏東市建國里公勇路 62 號","tel":"08-7515140","gps":"22.66905 120.48617","bike":"Y"},{"code":"5010","name":"歸來","ename":"Guilai","addr":"屏東縣屏東市歸心里歸仁路 5 之 4 號","tel":"08-7515140","gps":"22.65246 120.50263","bike":"N"},{"code":"5020","name":"麟洛","ename":"Linluo","addr":"屏東縣麟洛鄉田道村中華路站前巷 15 號","tel":"08-7515140","gps":"22.63481 120.51432","bike":"N"},{"code":"5030","name":"西勢","ename":"Xishi","addr":"屏東縣竹田鄉西勢村西豐路 2 號","tel":"08-7784521","gps":"22.61643 120.52661","bike":"Y"},{"code":"5040","name":"竹田","ename":"Zhutian","addr":"屏東縣竹田鄉履豐村豐明路29 號","tel":"08-7711002","gps":"22.58658 120.53978","bike":"Y"},{"code":"5050","name":"潮州","ename":"Chaozhou","addr":"屏東縣潮州鎮新榮里信義路 111 號","tel":"08-7882739","gps":"22.55008 120.53631","bike":"Y"},{"code":"5060","name":"崁頂","ename":"Kanding","addr":"屏東縣崁頂鄉崁頂村田寮路","tel":"08-7882739","gps":"22.51311 120.51481","bike":"N"},{"code":"5070","name":"南州","ename":"Nanzhou","addr":"屏東縣南州鄉仁里村仁里路 86 號","tel":"08-8642942","gps":"22.49207 120.51174","bike":"Y"},{"code":"5080","name":"鎮安","ename":"Zhen'an","addr":"屏東縣林邊鄉鎮安村永和路4號","tel":"08-8642942","gps":"22.45794 120.51129","bike":"N"},{"code":"5090","name":"林邊","ename":"Linbian","addr":"屏東縣林邊鄉仁和村仁愛路 33 號","tel":"08-8751475","gps":"22.43144 120.51535","bike":"Y"},{"code":"5100","name":"佳冬","ename":"Jiadong","addr":"屏東縣佳冬鄉六根村復興路21號","tel":"08-8662939","gps":"22.41409 120.54774","bike":"Y"},{"code":"5110","name":"東海","ename":"Donghai","addr":"屏東縣枋寮鄉東海村西安路 92 號","tel":"08-8782041","gps":"22.39897 120.57236","bike":"N"},{"code":"5120","name":"枋寮","ename":"Fangliao","addr":"屏東縣枋寮鄉枋寮村儲運路 18 號","tel":"08-8782041","gps":"22.36802 120.59511","bike":"Y"},{"code":"5130","name":"加祿","ename":"Jialu","addr":"屏東縣枋山鄉加祿村會社 53 號","tel":"08-8720791","gps":"22.33085 120.62445","bike":"Y"},{"code":"5140","name":"內獅","ename":"Neishi","addr":"屏東縣枋山鄉加祿村南和 43 號","tel":"08-8720791","gps":"22.30617 120.64331","bike":"N"},{"code":"5160","name":"枋山","ename":"Fangshan","addr":"屏東縣獅子鄉內獅村內獅巷 84 號","tel":"08-8720791","gps":"22.26704 120.65947","bike":"N"},{"code":"5170","name":"枋野","ename":"Fangye","addr":"屏東縣獅子鄉內獅村內獅巷 88 號","tel":"08-8761953","gps":"22.28091 120.71709","bike":"N"},{"code":"5190","name":"大武","ename":"Dawu","addr":"臺東縣大武鄉大鳥村和平部落 33 號","tel":"089-792056","gps":"22.36526 120.90094","bike":"Y"},{"code":"5200","name":"瀧溪","ename":"Longxi","addr":"臺東縣太麻里鄉多良村大溪 37 號","tel":"089-761482","gps":"22.46102 120.94176","bike":"Y"},{"code":"5210","name":"金崙","ename":"Jinlun","addr":"臺東縣太麻里鄉金崙村金崙 47 之 17 號","tel":"089-771068","gps":"22.53161 120.96721","bike":"Y"},{"code":"5220","name":"太麻里","ename":"Taimali","addr":"臺東縣太麻里鄉大王村站前路 2 號","tel":"089-781544","gps":"22.61883 121.00492","bike":"Y"},{"code":"5230","name":"知本","ename":"Zhiben","addr":"臺東縣臺東市知本里知本路二段 900 巷 85 號","tel":"089-514482","gps":"22.71022 121.06068","bike":"Y"},{"code":"5240","name":"康樂","ename":"Kangle","addr":"臺東縣臺東市康樂里博物館路 51 巷 131 號","tel":"089-383107","gps":"22.76426 121.09356","bike":"Y"},{"code":"5998","name":"南方小站","ename":"South","addr":"屏東縣潮州鎮光復路 461 號","tel":"","gps":"22.52755 120.53658","bike":"N"},{"code":"5999","name":"潮州基地","ename":"Chaozhou Railway Workshop","addr":"屏東縣潮州鎮光春里光復路 616 號","tel":"08-7889880","gps":"22.52231 120.52642","bike":"N"},{"code":"6000","name":"臺東","ename":"Taitung","addr":"臺東縣臺東市岩灣里岩灣路 101 巷 598 號","tel":"089-229687","gps":"22.79372 121.1231","bike":"Y"},{"code":"6010","name":"山里","ename":"Shanli","addr":"臺東縣卑南鄉嘉豐村山里路 108 號","tel":"089-572370","gps":"22.86194 121.13778","bike":"N"},{"code":"6020","name":"鹿野","ename":"Luye","addr":"臺東縣鹿野鄉鹿野村中正路 38 號","tel":"089-550217","gps":"22.91249 121.13701","bike":"Y"},{"code":"6030","name":"瑞源","ename":"Ruiyuan","addr":"臺東縣鹿野鄉瑞源村瑞景路一段 336 巷 8 號 之 1","tel":"089-580159","gps":"22.95604 121.15901","bike":"Y"},{"code":"6040","name":"瑞和","ename":"Ruihe","addr":"臺東縣鹿野鄉瑞和村瑞景路三段 1 之 1 號","tel":"089-580159","gps":"22.97997 121.15595","bike":"N"},{"code":"6050","name":"關山","ename":"Guanshan","addr":"臺東縣關山鎮里壠里博愛路 2 號","tel":"089-811033","gps":"23.04566 121.1643","bike":"Y"},{"code":"6060","name":"海端","ename":"Haiduan","addr":"臺東縣關山鎮德高里西莊 49 號","tel":"089-811033","gps":"23.10292 121.17676","bike":"N"},{"code":"6070","name":"池上","ename":"Chishang","addr":"臺東縣池上鄉福文村鐵花路 30 號","tel":"089-862097","gps":"23.12613 121.21949","bike":"Y"},{"code":"6080","name":"富里","ename":"Fuli","addr":"花蓮縣富里鄉富里村車站街 56 號","tel":"03-8831771","gps":"23.17924 121.24864","bike":"Y"},{"code":"6090","name":"東竹","ename":"Dongzhu","addr":"花蓮縣富里鄉新興村新興 23 號","tel":"03-8821504","gps":"23.22605 121.27842","bike":"Y"},{"code":"6100","name":"東里","ename":"Dongli","addr":"花蓮縣富里鄉東里村大莊路 15 之 6 號","tel":"03-8861005","gps":"23.27234 121.30418","bike":"Y"},{"code":"6110","name":"玉里","ename":"Yuli","addr":"花蓮縣玉里鎮中城里康樂街 39 號","tel":"03-8882020","gps":"23.33155 121.31172","bike":"Y"},{"code":"6120","name":"三民","ename":"Sanmin","addr":"花蓮縣玉里鎮三民里三民 10 號","tel":"03-8841847","gps":"23.42458 121.34539","bike":"N"},{"code":"6130","name":"瑞穗","ename":"Ruisui","addr":"花蓮縣瑞穗鄉瑞穗村四維街 13 號","tel":"03-8875039","gps":"23.49749 121.37683","bike":"Y"},{"code":"6140","name":"富源","ename":"Fuyuan","addr":"花蓮縣瑞穗鄉富源村富源路 2 號","tel":"03-8811824","gps":"23.58031 121.38008","bike":"Y"},{"code":"6150","name":"大富","ename":"Dafu","addr":"花蓮縣光復鄉大富村明德路 1 號","tel":"03-8811824","gps":"23.60571 121.38963","bike":"N"},{"code":"6160","name":"光復","ename":"Guangfu","addr":"花蓮縣光復鄉大安村中正路一段 2 之 1 號","tel":"03-8704143","gps":"23.66631 121.42117","bike":"Y"},{"code":"6170","name":"萬榮","ename":"Wanrong","addr":"花蓮縣鳳林鎮長橋里長德街 17 號","tel":"03-8752175","gps":"23.71199 121.41907","bike":"Y"},{"code":"6180","name":"鳳林","ename":"Fenglin","addr":"花蓮縣鳳林鎮鳳智里中山路 43 號","tel":"03-8762004","gps":"23.74634 121.44701","bike":"Y"},{"code":"6190","name":"南平","ename":"Nanping","addr":"花蓮縣鳳林鎮南平里自強路 233 號","tel":"03-8771597","gps":"23.78231 121.45824","bike":"Y"},{"code":"6200","name":"林榮新光","ename":"Linrong Shin Kong","addr":"花蓮縣鳳林鎮兆豐路800號","tel":"03-8772677","gps":"23.80176 121.46169","bike":"Y"},{"code":"6210","name":"豐田","ename":"Fengtian","addr":"花蓮縣壽豐鄉豐山村站前街 36 號","tel":"03-8654251","gps":"23.84842 121.49618","bike":"N"},{"code":"6220","name":"壽豐","ename":"Shoufeng","addr":"花蓮縣壽豐鄉壽豐村壽山路 1 號","tel":"03-8653706","gps":"23.86901 121.51064","bike":"Y"},{"code":"6230","name":"平和","ename":"Pinghe","addr":"花蓮縣壽豐鄉平和村平和路 1 號","tel":"03-8653706","gps":"23.88279 121.52045","bike":"N"},{"code":"6240","name":"志學","ename":"Zhixue","addr":"花蓮縣壽豐鄉志學村中正路 1 號","tel":"03-8662966","gps":"23.90769 121.5295","bike":"Y"},{"code":"6250","name":"吉安","ename":"Ji'an","addr":"花蓮縣吉安鄉南昌村南昌路1號","tel":"03-8539423","gps":"23.96823 121.58266","bike":"Y"},{"code":"7000","name":"花蓮","ename":"Hualien","addr":"花蓮縣花蓮市國聯里國聯一路 100 號","tel":"03-8355941","gps":"23.99264 121.60158","bike":"Y"},{"code":"7010","name":"北埔","ename":"Beipu","addr":"花蓮縣新城鄉北埔村自強街 113 號","tel":"03-8263809","gps":"24.03253 121.60166","bike":"N"},{"code":"7020","name":"景美","ename":"Jingmei","addr":"花蓮縣秀林鄉景美村加灣 178 之 1 號","tel":"03-8611237","gps":"24.09038 121.61099","bike":"N"},{"code":"7030","name":"新城","ename":"Xincheng","addr":"花蓮縣新城鄉新城村新興一路 73 號","tel":"03-8611237","gps":"24.12756 121.64086","bike":"Y"},{"code":"7040","name":"崇德","ename":"Chongde","addr":"花蓮縣秀林鄉崇德村海濱路 96 號","tel":"03-8621365","gps":"24.17199 121.65536","bike":"Y"},{"code":"7050","name":"和仁","ename":"Heren","addr":"花蓮縣秀林鄉和平村和仁 71 號","tel":"03-8681221","gps":"24.24225 121.71182","bike":"N"},{"code":"7060","name":"和平","ename":"Heping","addr":"花蓮縣秀林鄉和平村和平 276 號","tel":"03-8681009","gps":"24.29839 121.75344","bike":"Y"},{"code":"7070","name":"漢本","ename":"Hanben","addr":"宜蘭縣南澳鄉澳花村蘇花路一段 56 號","tel":"03-9985238","gps":"24.33543 121.76838","bike":"N"},{"code":"7080","name":"武塔","ename":"Wuta","addr":"宜蘭縣南澳鄉武塔村新溪路 18 號","tel":"03-9981971","gps":"24.44879 121.77601","bike":"N"},{"code":"7090","name":"南澳","ename":"Nan'ao","addr":"宜蘭縣蘇澳鎮南強里大通路 22 號","tel":"03-9981971","gps":"24.46342 121.80103","bike":"Y"},{"code":"7100","name":"東澳","ename":"Dong'ao","addr":"宜蘭縣南澳鄉東岳村東岳路 1 號","tel":"03-9986053","gps":"24.51827 121.83072","bike":"Y"},{"code":"7110","name":"永樂","ename":"Yongle","addr":"宜蘭縣蘇澳鎮永樂里圳頭路 60 號","tel":"03-9961889","gps":"24.56843 121.84458","bike":"N"},{"code":"7120","name":"蘇澳","ename":"Su'ao","addr":"宜蘭縣蘇澳鎮蘇南里太平路 1 號","tel":"03-9962028","gps":"24.59516 121.85143","bike":"Y"},{"code":"7130","name":"蘇澳新","ename":"Su'aoxin","addr":"宜蘭縣蘇澳鎮聖愛里中山路二段 238 號","tel":"03-9961004","gps":"24.60852 121.82735","bike":"Y"},{"code":"7140","name":"新馬","ename":"Xinma","addr":"宜蘭縣蘇澳鎮新城里中山路二段 322 號","tel":"03-9961004","gps":"24.61535 121.82292","bike":"N"},{"code":"7150","name":"冬山","ename":"Dongshan","addr":"宜蘭縣冬山鄉冬山村中正路 1 -1號","tel":"03-9594221","gps":"24.63633 121.79211","bike":"Y"},{"code":"7160","name":"羅東","ename":"Luodong","addr":"宜蘭縣羅東鎮大新里公正路 2 號","tel":"03-9542117","gps":"24.67795 121.77424","bike":"Y"},{"code":"7170","name":"中里","ename":"Zhongli_Yilan","addr":"宜蘭縣五結鄉中里路","tel":"03-9542117","gps":"24.69415 121.77526","bike":"N"},{"code":"7180","name":"二結","ename":"Erjie","addr":"宜蘭縣五結鄉五結中路三段658巷8號","tel":"03-9650304","gps":"24.70528 121.77409","bike":"N"},{"code":"7190","name":"宜蘭","ename":"Yilan","addr":"宜蘭縣宜蘭市和睦里光復路 1 號","tel":"03-9323801","gps":"24.75462 121.75791","bike":"Y"},{"code":"7200","name":"四城","ename":"Sicheng","addr":"宜蘭縣礁溪鄉吳沙村站前路 24 號","tel":"03-9282449","gps":"24.78681 121.76271","bike":"N"},{"code":"7210","name":"礁溪","ename":"Jiaoxi","addr":"宜蘭縣礁溪鄉德陽村溫泉路 1 號","tel":"03-9886940","gps":"24.82703 121.77535","bike":"Y"},{"code":"7220","name":"頂埔","ename":"Dingpu","addr":"宜蘭縣頭城鎮下埔里下埔路 4 之 8 號","tel":"03-9771429","gps":"24.84391 121.80913","bike":"N"},{"code":"7230","name":"頭城","ename":"Toucheng","addr":"宜蘭縣頭城鎮纘祥路 59 號","tel":"03-9771429","gps":"24.85898 121.82258","bike":"Y"},{"code":"7240","name":"外澳","ename":"Wai'ao","addr":"宜蘭縣頭城鎮濱海路二段 217 號","tel":"03-9771429","gps":"24.88375 121.84572","bike":"N"},{"code":"7250","name":"龜山","ename":"Guishan","addr":"宜蘭縣頭城鎮更新里濱海路三段 261 號","tel":"03-9770351","gps":"24.90484 121.8689","bike":"N"},{"code":"7260","name":"大溪","ename":"Daxi","addr":"宜蘭縣頭城鎮濱海路五段 63 號","tel":"03-9771429","gps":"24.93836 121.88983","bike":"N"},{"code":"7270","name":"大里","ename":"Dali","addr":"宜蘭縣頭城鎮大里里濱海路六段 326 號","tel":"03-9781171","gps":"24.96677 121.92253","bike":"N"},{"code":"7280","name":"石城","ename":"Shicheng","addr":"宜蘭縣頭城鎮濱海路七段 230 號","tel":"03-9771429","gps":"24.97832 121.94507","bike":"N"},{"code":"7290","name":"福隆","ename":"Fulong","addr":"新北市貢寮區福隆里福隆街 2 號","tel":"02-24991800","gps":"25.01595 121.94471","bike":"Y"},{"code":"7300","name":"貢寮","ename":"Gongliao","addr":"新北市貢寮區貢寮里朝陽街 33 號","tel":"02-24941500","gps":"25.02197 121.90879","bike":"Y"},{"code":"7310","name":"雙溪","ename":"Shuangxi","addr":"新北市雙溪區新基里朝陽街 1 號","tel":"02-24932980","gps":"25.03851 121.86654","bike":"Y"},{"code":"7320","name":"牡丹","ename":"Mudan","addr":"新北市雙溪區牡丹里51號","tel":"02-24932980","gps":"25.05871 121.85197","bike":"N"},{"code":"7330","name":"三貂嶺","ename":"Sandiaoling","addr":"新北市瑞芳區碩仁里魚寮路 1 號","tel":"02-24977896","gps":"25.06555 121.82257","bike":"N"},{"code":"7331","name":"大華","ename":"Dahua","addr":"新北市平溪區南山里六分 12 之 1 號","tel":"02-24972033","gps":"25.04998 121.79732","bike":"N"},{"code":"7332","name":"十分","ename":"Shifen","addr":"新北市平溪區十分里十分街 51 號","tel":"02-24958307","gps":"25.04111 121.77514","bike":"N"},{"code":"7333","name":"望古","ename":"Wanggu","addr":"新北市平溪區望古里 (無站房)","tel":"02-24972033","gps":"25.03445 121.76349","bike":"N"},{"code":"7334","name":"嶺腳","ename":"Lingjiao","addr":"新北市平溪區嶺腳里嶺腳寮 22 號","tel":"02-24972033","gps":"25.03016 121.74795","bike":"N"},{"code":"7335","name":"平溪","ename":"Pingxi","addr":"新北市平溪區平溪里中華街 12 號","tel":"02-24972033","gps":"25.02571 121.74019","bike":"N"},{"code":"7336","name":"菁桐","ename":"Jingtong","addr":"新北市平溪區菁桐里菁桐街 52 號","tel":"02-24972033","gps":"25.02391 121.72391","bike":"N"},{"code":"7350","name":"猴硐","ename":"Houtong","addr":"新北市瑞芳區光復里柴寮路 70 號","tel":"02-24977747","gps":"25.08702 121.82743","bike":"Y"},{"code":"7360","name":"瑞芳","ename":"Ruifang","addr":"新北市瑞芳區龍潭里明燈路三段 82 號","tel":"02-24972033","gps":"25.10861 121.80596","bike":"Y"},{"code":"7361","name":"海科館","ename":"Haikeguan","addr":"基隆市中正區長潭里","tel":"02-24972033","gps":"25.13754 121.79997","bike":"N"},{"code":"7362","name":"八斗子","ename":"Badouzi","addr":"新北市瑞芳區建基路2段121號隔壁 砂子里省道臺 2 線 (與新北市瑞芳區交界處、無站房)","tel":"02-24972033","gps":"25.13528 121.80286","bike":"N"},{"code":"7380","name":"四腳亭","ename":"Sijiaoting","addr":"新北市瑞芳區吉慶里中央路 65 號","tel":"02-24579346","gps":"25.10281 121.76195","bike":"Y"},{"code":"7390","name":"暖暖","ename":"Nuannuan","addr":"基隆市暖暖區暖暖里暖暖街 51 號","tel":"02-24560841","gps":"25.10231 121.74031","bike":"N"}];
+const KEY='tra_v3';
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{};}catch{return {};}}
+function save(s){localStorage.setItem(KEY,JSON.stringify(s));}
+function parseGps(g){if(!g)return null;const p=g.trim().split(/\s+/);return p.length<2?null:{lat:+p[0],lng:+p[1]};}
+
+let state=load(), filter='all', query='', markers={}, activeEl=null, map;
+
+// ── MAP ──────────────────────────────────────────────
+function initMap(){
+  map=L.map('map',{center:[23.7,121.0],zoom:7});
+
+  // TGOS 國土測繪中心底圖（台灣官方圖資）
+  L.tileLayer(
+    'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
+    {attribution:'© 國土測繪中心 NLSC',maxZoom:20,tileSize:256}
+  ).addTo(map);
+
+  STATIONS.forEach(s=>{
+    const c=parseGps(s.gps); if(!c)return;
+    const m=L.marker([c.lat,c.lng],{icon:mkIcon(s.code)}).addTo(map);
+    m.on('click',()=>openPopup(s,m));
+    markers[s.code]=m;
+  });
+}
+
+function mkColor(code){
+  const r=state[code];
+  if(!r)return'#6a9bd4';
+  if(r.status==='visited')return'#2a7a52';
+  if(r.status==='target')return'#c04a28';
+  return'#6a9bd4';
+}
+
+function mkIcon(code){
+  const c=mkColor(code);
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:11px;height:11px;border-radius:50%;background:${c};border:2px solid rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>`,
+    iconSize:[11,11],iconAnchor:[5,5]
+  });
+}
+
+function refreshMarker(code){
+  const m=markers[code]; if(!m)return;
+  m.setIcon(mkIcon(code));
+}
+
+// ── POPUP ─────────────────────────────────────────────
+function openPopup(s,m){
+  const r=state[s.code], status=r?.status||null, date=r?.date||'';
+  const vOn=status==='visited', tOn=status==='target';
+  const html=`
+<div class="pu">
+  <div class="pu-name">${s.name}</div>
+  <div class="pu-en">${s.ename}</div>
+  <div class="pu-meta">
+    <b>站碼</b> ${s.code}<br>
+    <b>地址</b> ${s.addr||'—'}<br>
+    ${s.tel?`<b>電話</b> ${s.tel}<br>`:''}
+    <b>Youbike</b> ${s.bike==='Y'?'✓ 有':'✗ 無'}
+  </div>
+  <div class="pu-acts">
+    <div class="btn ${vOn?'b-v':''}" onclick="setStatus('${s.code}','visited')">✓ 已打卡</div>
+    <div class="btn ${tOn?'b-t':''}" onclick="setStatus('${s.code}','target')">★ 目標站</div>
+    <div class="btn" onclick="setStatus('${s.code}',null)" style="flex:0;padding:8px 10px;">✕</div>
+  </div>
+  ${status==='visited'?`
+  <div class="date-sec">
+    <div class="date-lbl">打卡日期（可修改）</div>
+    <div class="date-row">
+      <input class="date-input" type="date" id="di_${s.code}" value="${date}" max="${new Date().toISOString().slice(0,10)}">
+      <button class="date-save" onclick="saveDate('${s.code}')">儲存</button>
+    </div>
+    <div class="date-hint">可輸入過去實際到訪日期</div>
+  </div>`:''}
+</div>`;
+  m.bindPopup(html,{maxWidth:270,className:''}).openPopup();
+  hlItem(s.code);
+}
+
+function setStatus(code,status){
+  const today=new Date().toISOString().slice(0,10);
+  if(!status){delete state[code];}
+  else{
+    const old=state[code]||{};
+    state[code]={status, date:status==='visited'?(old.status==='visited'?old.date:today):old.date||''};
+  }
+  save(state); refreshMarker(code); updateStats(); renderList();
+  map.closePopup();
+  const s=STATIONS.find(x=>x.code===code);
+  const m=markers[code];
+  if(s&&m)setTimeout(()=>openPopup(s,m),80);
+}
+
+function saveDate(code){
+  const inp=document.getElementById('di_'+code);
+  if(!inp)return;
+  const d=inp.value;
+  if(state[code]){state[code].date=d;}
+  save(state);
+  toast('✓ 日期已儲存：'+d);
+}
+
+// ── STATS ─────────────────────────────────────────────
+function updateStats(){
+  let v=0,t=0;
+  Object.values(state).forEach(r=>{if(r.status==='visited')v++;else if(r.status==='target')t++;});
+  document.getElementById('sv').textContent=v;
+  document.getElementById('st').textContent=t;
+  document.getElementById('pf').style.width=(v/244*100).toFixed(1)+'%';
+  document.getElementById('pt').textContent=v+' / 244 已打卡';
+}
+
+// ── LIST ──────────────────────────────────────────────
+function filteredList(){
+  return STATIONS.filter(s=>{
+    const r=state[s.code], status=r?.status||'unvisited';
+    if(filter==='visited'&&status!=='visited')return false;
+    if(filter==='target'&&status!=='target')return false;
+    if(filter==='unvisited'&&status!=='unvisited')return false;
+    if(query){const q=query.toLowerCase();return s.name.includes(q)||s.ename.toLowerCase().includes(q)||s.code.includes(q);}
+    return true;
+  });
+}
+
+function renderList(){
+  const data=filteredList();
+  document.getElementById('lc').textContent='顯示 '+data.length+' 站';
+  document.getElementById('list').innerHTML=data.map(s=>{
+    const r=state[s.code], status=r?.status||'unvisited';
+    const dc=status==='visited'?'dv':status==='target'?'dt':'du';
+    return`<div class="item" id="i_${s.code}" onclick="focusStation('${s.code}')">
+      <div class="dot ${dc}"></div>
+      <div style="flex:1;min-width:0;">
+        <div class="iname">${s.name}</div>
+        <div class="iename">${s.ename}</div>
+      </div>
+      <div class="icode">${s.code}</div>
+    </div>`;
+  }).join('');
+}
+
+function focusStation(code){
+  const s=STATIONS.find(x=>x.code===code); if(!s)return;
+  const c=parseGps(s.gps); if(!c)return;
+  map.setView([c.lat,c.lng],14,{animate:true});
+  const m=markers[code];
+  if(m)setTimeout(()=>openPopup(s,m),350);
+  hlItem(code);
+}
+
+function hlItem(code){
+  if(activeEl)activeEl.classList.remove('on');
+  const el=document.getElementById('i_'+code);
+  if(el){el.classList.add('on');el.scrollIntoView({behavior:'smooth',block:'nearest'});activeEl=el;}
+}
+
+function setTab(f,el){
+  filter=f;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  renderList();
+}
+
+function doFilter(){query=document.getElementById('searchInput').value;renderList();}
+
+// ── TOAST ─────────────────────────────────────────────
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+// ── INIT ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  initMap(); updateStats(); renderList();
+});
+</script>
+</body>
+</html>
