@@ -206,6 +206,7 @@ function saveDate(code){
   if(!inp)return;
   if(state[code])state[code].date=inp.value;
   save(state);
+  renderList();
   toast('✓ 日期已儲存：'+inp.value);
 }
 
