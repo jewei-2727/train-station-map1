@@ -455,11 +455,11 @@ function openPopup(s, m) {
     ${s.tel ? `<b>電話</b> ${s.tel}<br>` : ''}
     <b>Youbike</b> ${s.bike==='Y' ? '✓ 有' : '✗ 無'}
   </div>
-  <div class="pu-acts">
+  ${!IS_VIEW_MODE ? `<div class="pu-acts">
     <div class="btn ${vOn?'bv':''}" onclick="setStatus('${s.code}','visited')">✓ 已打卡</div>
     <div class="btn" onclick="setStatus('${s.code}',null)">✕ 取消</div>
-  </div>
-  ${vOn ? `<div class="date-sec">
+  </div>` : ''}
+  ${vOn && !IS_VIEW_MODE ? `<div class="date-sec">
     <div class="dlbl">打卡日期（可修改）</div>
     <div class="drow">
       <input class="dinput" type="date" id="di_${s.code}" value="${date}" max="${today}">
@@ -467,13 +467,14 @@ function openPopup(s, m) {
     </div>
     <div class="dhint">修改後記得按右上角「☁ 儲存」</div>
   </div>` : ''}
+  ${vOn && IS_VIEW_MODE ? `<div style="font-size:10px;color:#857e74;padding:4px 0;">📅 打卡日期：${date||'未記錄'}</div>` : ''}
   <div class="photo-sec">
     <div class="photo-lbl">📷 到站照片（${photos.length} 張）</div>
     ${photos.length > 0 ? `<div class="photo-grid">${thumbs}</div>` : ''}
-    <label class="upload-btn">
+    ${!IS_VIEW_MODE ? `<label class="upload-btn">
       <input type="file" accept="image/*" multiple onchange="uploadPhoto('${s.code}',this)">
       ＋ 上傳照片到 Google Drive
-    </label>
+    </label>` : ''}
   </div>
 </div>`;
   m.bindPopup(html, {maxWidth:300, className:''}).openPopup();
@@ -597,8 +598,29 @@ function closeSidebar(){
   document.getElementById('overlay').classList.remove('show');
 }
 
+
+// ── 唯讀模式 ──────────────────────────────────
+const IS_VIEW_MODE = new URLSearchParams(window.location.search).get('view') === '1';
+
+function applyViewMode() {
+  if (!IS_VIEW_MODE) return;
+  // 隱藏儲存按鈕
+  const syncBtn = document.getElementById('syncBtn');
+  if (syncBtn) syncBtn.style.display = 'none';
+  // 隱藏測試按鈕
+  document.querySelectorAll('button').forEach(btn => {
+    if (btn.textContent.includes('🔧')) btn.style.display = 'none';
+  });
+  // 顯示唯讀提示
+  const badge = document.createElement('div');
+  badge.textContent = '👁 瀏覽模式';
+  badge.style.cssText = 'padding:4px 12px;font-size:9px;background:#f0ece4;border:1.5px solid #ddd8cd;border-radius:4px;color:#857e74;font-family:Space Mono,monospace;letter-spacing:1px;white-space:nowrap;';
+  document.querySelector('header').appendChild(badge);
+}
+
 window.addEventListener('load', () => {
   initMap();
+  applyViewMode();
   loadFromSheet();
 });
 </script>
